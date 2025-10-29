@@ -52,7 +52,16 @@
 				};
 			};
 		}
-	}, identity = (a) => a, constant = (value) => () => value, constTrue = /* @__PURE__ */ constant(!0), constFalse = /* @__PURE__ */ constant(!1), constVoid = /* @__PURE__ */ constant(void 0), isString = (input) => typeof input == "string", isNumber = (input) => typeof input == "number", isBoolean = (input) => typeof input == "boolean", isBigInt = (input) => typeof input == "bigint", isSymbol = (input) => typeof input == "symbol", isFunction$1 = isFunction, isObject = (input) => typeof input == "object" && !!input && !Array.isArray(input), isObjectKeyword = (input) => typeof input == "object" && !!input || isFunction$1(input), hasProperty = /* @__PURE__ */ dual(2, (self, property) => isObjectKeyword(self) && property in self), isTagged = /* @__PURE__ */ dual(2, (self, tag) => hasProperty(self, "_tag") && self._tag === tag), isDate = (input) => input instanceof Date, getAllObjectKeys = (obj) => {
+	}, identity = (a) => a, constant = (value) => () => value, constTrue = /* @__PURE__ */ constant(!0), constFalse = /* @__PURE__ */ constant(!1), constVoid = /* @__PURE__ */ constant(void 0);
+	function memoize(f) {
+		let cache = /* @__PURE__ */ new WeakMap();
+		return (a) => {
+			if (cache.has(a)) return cache.get(a);
+			let result$2 = f(a);
+			return cache.set(a, result$2), result$2;
+		};
+	}
+	let isString = (input) => typeof input == "string", isNumber = (input) => typeof input == "number", isBoolean = (input) => typeof input == "boolean", isBigInt = (input) => typeof input == "bigint", isSymbol = (input) => typeof input == "symbol", isFunction$1 = isFunction, isObject = (input) => typeof input == "object" && !!input && !Array.isArray(input), isObjectKeyword = (input) => typeof input == "object" && !!input || isFunction$1(input), hasProperty = /* @__PURE__ */ dual(2, (self, property) => isObjectKeyword(self) && property in self), isTagged = /* @__PURE__ */ dual(2, (self, tag) => hasProperty(self, "_tag") && self._tag === tag), isDate = (input) => input instanceof Date, getAllObjectKeys = (obj) => {
 		let keys$1 = new Set(Reflect.ownKeys(obj));
 		if (obj.constructor === Object) return keys$1;
 		obj instanceof Error && keys$1.delete("stack");
@@ -611,7 +620,7 @@
 		let i = Math.floor(index);
 		if (isOutOfBounds(i, self)) throw Error(`Index out of bounds: ${i}`);
 		return self[i];
-	}))(0), lastNonEmpty = (self) => self[self.length - 1], tailNonEmpty = (self) => self.slice(1), _equivalence = /* @__PURE__ */ equivalence(), unionWith = /* @__PURE__ */ dual(3, (self, that, isEquivalent) => {
+	}))(0), tailNonEmpty = (self) => self.slice(1), _equivalence = /* @__PURE__ */ equivalence(), unionWith = /* @__PURE__ */ dual(3, (self, that, isEquivalent) => {
 		let a = fromIterable(self), b = fromIterable(that);
 		return isReadonlyArrayNonEmpty(a) ? isReadonlyArrayNonEmpty(b) ? dedupeWith(isEquivalent)(appendAll$1(a, b)) : a : b;
 	}), union = /* @__PURE__ */ dual(2, (self, that) => unionWith(self, that, _equivalence)), of = (a) => [a], dedupeWith = /* @__PURE__ */ dual(2, (self, isEquivalent) => {
@@ -883,7 +892,18 @@
 	}, causeHasInterrupt = (self) => self.failures.some(failureIsInterrupt$1), failureIsInterrupt$1 = (self) => isTagged(self, "Interrupt"), causeMerge = /* @__PURE__ */ dual(2, (self, that) => {
 		let newCause = new CauseImpl(union(self.failures, that.failures));
 		return equals$1(self, newCause) ? self : newCause;
-	}), causePrettyError = (original, annotations$1) => {
+	}), causePartition = (self) => {
+		let obj = {
+			Fail: [],
+			Die: [],
+			Interrupt: []
+		};
+		for (let i = 0; i < self.failures.length; i++) obj[self.failures[i]._tag].push(self.failures[i]);
+		return obj;
+	}, causeSquash = (self) => {
+		let partitioned = causePartition(self);
+		return partitioned.Fail.length > 0 ? partitioned.Fail[0].error : partitioned.Die.length > 0 ? partitioned.Die[0].defect : partitioned.Interrupt.length > 0 ? new globalThis.Error("All fibers interrupted without error") : new globalThis.Error("Empty cause");
+	}, causePrettyError = (original, annotations$1) => {
 		let kind = typeof original, error;
 		if (original && kind === "object") {
 			if (error = new globalThis.Error(causePrettyMessage(original), { cause: original.cause ? causePrettyError(original.cause) : void 0 }), typeof original.name == "string" && (error.name = original.name), typeof original.stack == "string") error.stack = cleanErrorStack(original.stack, error, annotations$1);
@@ -1096,7 +1116,9 @@
 				resumed = !0;
 			});
 		}
-	}))(0), succeedNone$1 = /* @__PURE__ */ succeed$4(/* @__PURE__ */ none()), void_$2 = /* @__PURE__ */ succeed$4(void 0), withFiberId = (f) => withFiber$1((fiber) => f(fiber.id)), callbackOptions = /* @__PURE__ */ makePrimitive({
+	}))(0), succeedNone$1 = /* @__PURE__ */ succeed$4(/* @__PURE__ */ none()), die$3 = (defect) => exitDie(defect), void_$2 = /* @__PURE__ */ succeed$4(void 0), promise$1 = (evaluate$1) => callbackOptions(function(resume, signal) {
+		internalCall(() => evaluate$1(signal)).then((a) => resume(succeed$4(a)), (e) => resume(die$3(e)));
+	}, evaluate$1.length !== 0), withFiberId = (f) => withFiber$1((fiber) => f(fiber.id)), callbackOptions = /* @__PURE__ */ makePrimitive({
 		op: "Async",
 		single: !1,
 		[evaluate](fiber) {
@@ -1149,25 +1171,7 @@
 	})), tap$3 = /* @__PURE__ */ dual(2, (self, f) => flatMap$3(self, (a) => {
 		let value = isEffect$1(f) ? f : typeof f == "function" ? internalCall(() => f(a)) : f;
 		return isEffect$1(value) ? as$1(value, a) : succeed$4(a);
-	})), asVoid$2 = (self) => flatMap$3(self, (_) => exitVoid), raceAllFirst$1 = (all$2, options) => withFiber$1((parent) => callback$2((resume) => {
-		let done$2 = !1, fibers = /* @__PURE__ */ new Set(), onExit$2 = (exit$2) => {
-			done$2 = !0, resume(fibers.size === 0 ? exit$2 : flatMap$3(uninterruptible$1(fiberInterruptAll(fibers)), () => exit$2));
-		}, i = 0;
-		for (let effect of all$2) {
-			if (done$2) break;
-			let index = i++, fiber = forkUnsafe$1(parent, effect, !0, !0, !1);
-			fibers.add(fiber), fiber.addObserver((exit$2) => {
-				fibers.delete(fiber);
-				let isWinner = !done$2;
-				onExit$2(exit$2), isWinner && options?.onWinner && options.onWinner({
-					fiber,
-					index,
-					parentFiber: parent
-				});
-			});
-		}
-		return fiberInterruptAll(fibers);
-	})), raceFirst$1 = /* @__PURE__ */ dual((args$1) => isEffect$1(args$1[1]), (self, that, options) => raceAllFirst$1([self, that], options)), flatMap$3 = /* @__PURE__ */ dual(2, (self, f) => {
+	})), asVoid$2 = (self) => flatMap$3(self, (_) => exitVoid), flatMap$3 = /* @__PURE__ */ dual(2, (self, f) => {
 		let onSuccess = Object.create(OnSuccessProto);
 		return onSuccess[args] = self, onSuccess[contA] = f.length === 1 ? f : (a) => f(a), onSuccess;
 	}), OnSuccessProto = /* @__PURE__ */ makePrimitiveProto({
@@ -1286,7 +1290,17 @@
 	})), ensuring$1 = /* @__PURE__ */ dual(2, (self, finalizer) => onExit$1(self, (_) => finalizer)), onExitFilter$1 = /* @__PURE__ */ dual(3, (self, filter$2, f) => onExit$1(self, (exit$2) => {
 		let b = filter$2(exit$2);
 		return isFail(b) ? void 0 : f(b, exit$2);
-	})), onError$1 = /* @__PURE__ */ dual(2, (self, f) => onExitFilter$1(self, exitFilterCause, f)), uninterruptible$1 = (self) => withFiber$1((fiber) => fiber.interruptible ? (fiber.interruptible = !1, fiber._stack.push(setInterruptibleTrue), self) : self), setInterruptible = /* @__PURE__ */ makePrimitive({
+	})), onError$1 = /* @__PURE__ */ dual(2, (self, f) => onExitFilter$1(self, exitFilterCause, f)), cachedInvalidateWithTTL$1 = /* @__PURE__ */ dual(2, (self, ttl) => sync$1(() => {
+		let ttlMillis = toMillis(fromDurationInputUnsafe(ttl)), isFinite = Number.isFinite(ttlMillis), latch = makeLatchUnsafe$1(!1), expiresAt = 0, running = !1, exit$2, wait = flatMap$3(latch.await, () => exit$2);
+		return [withFiber$1((fiber) => {
+			let now = isFinite ? fiber.getRef(ClockRef).currentTimeMillisUnsafe() : 0;
+			return running || now < expiresAt ? exit$2 ?? wait : (running = !0, latch.closeUnsafe(), exit$2 = void 0, onExit$1(self, (exit_) => {
+				running = !1, expiresAt = now + ttlMillis, exit$2 = exit_, latch.openUnsafe();
+			}));
+		}), sync$1(() => {
+			expiresAt = 0, latch.closeUnsafe(), exit$2 = void 0;
+		})];
+	})), cachedWithTTL$1 = /* @__PURE__ */ dual(2, (self, timeToLive) => map$4(cachedInvalidateWithTTL$1(self, timeToLive), (tuple) => tuple[0])), cached$1 = (self) => cachedWithTTL$1(self, infinity), setInterruptible = /* @__PURE__ */ makePrimitive({
 		op: "SetInterruptible",
 		[contAll](fiber) {
 			if (fiber.interruptible = this[args], fiber._interruptedCause && fiber.interruptible) return () => failCause$3(fiber._interruptedCause);
@@ -1362,7 +1376,21 @@
 		if (scope$2.state._tag === "Closed") return self.interruptUnsafe(self.id), self;
 		let key = {};
 		return scopeAddFinalizerUnsafe(scope$2, key, () => fiberInterrupt(self)), self.addObserver(() => scopeRemoveFinalizerUnsafe(scope$2, key)), self;
-	}), runFork$1 = /* @__PURE__ */ runForkWith$1(/* @__PURE__ */ empty$3());
+	}), runFork$1 = /* @__PURE__ */ runForkWith$1(/* @__PURE__ */ empty$3()), runSyncExitWith$1 = (services$2) => {
+		let runFork$2 = runForkWith$1(services$2);
+		return (effect) => {
+			if (effectIsExit(effect)) return effect;
+			let scheduler = new MixedScheduler("sync"), fiber = runFork$2(effect, { scheduler });
+			return scheduler.flush(), fiber._exit ?? exitDie(fiber);
+		};
+	}, runSync$1 = /* @__PURE__ */ ((services$2) => {
+		let runSyncExit$2 = runSyncExitWith$1(services$2);
+		return (effect) => {
+			let exit$2 = runSyncExit$2(effect);
+			if (exit$2._tag === "Failure") throw causeSquash(exit$2.cause);
+			return exit$2.value;
+		};
+	})(/* @__PURE__ */ empty$3());
 	var Semaphore = class {
 		waiters = /* @__PURE__ */ new Set();
 		taken = 0;
@@ -1458,7 +1486,7 @@
 		if (!processHrtime) return performanceNowNanos;
 		let origin = /* @__PURE__ */ performanceNowNanos() - /* @__PURE__ */ processHrtime.bigint();
 		return () => origin + processHrtime.bigint();
-	}(), clockWith$2 = (f) => withFiber$1((fiber) => f(fiber.getRef(ClockRef))), sleep$1 = (duration) => clockWith$2((clock) => clock.sleep(fromDurationInputUnsafe(duration)));
+	}();
 	TaggedError("TimeoutError"), TaggedError("IllegalArgumentError"), TaggedError("ExceededCapacityError"), TaggedError("UnknownError");
 	let colors = {
 		bold: "1",
@@ -1480,7 +1508,7 @@
 	}
 	let filterError$1 = causeFilterError, succeed$3 = exitSucceed, failCause$2 = exitFailCause, void_$1 = exitVoid, makeUnsafe = scopeMakeUnsafe, provide$2 = provideScope, addFinalizer$1 = scopeAddFinalizer, forkUnsafe = scopeForkUnsafe, close = scopeClose;
 	({ ...StructuralProto });
-	let Clock = ClockRef, HaltTypeId = "~effect/stream/Pull/Halt";
+	let HaltTypeId = "~effect/stream/Pull/Halt";
 	var Halt = class {
 		[HaltTypeId] = HaltTypeId;
 		leftover;
@@ -1491,7 +1519,7 @@
 	let catchHalt = /* @__PURE__ */ dual(2, (effect, f) => catchCauseFilter$1(effect, filterHaltLeftover, (l) => f(l))), isHalt = (u) => hasProperty(u, HaltTypeId), isHaltCause = (cause) => cause.failures.some(isHaltFailure), isHaltFailure = (failure) => failure._tag === "Fail" && isHalt(failure.error), filterHalt = /* @__PURE__ */ composePassthrough(filterError$1, (e) => isHalt(e) ? e : fail$4(e)), filterHaltLeftover = /* @__PURE__ */ composePassthrough(filterError$1, (e) => isHalt(e) ? e.leftover : fail$4(e)), haltVoid = /* @__PURE__ */ fail$3(/* @__PURE__ */ new Halt(void 0)), haltExitFromCause = (cause) => {
 		let halt$1 = filterHalt(cause);
 		return isFail(halt$1) ? failCause$2(halt$1.fail) : succeed$3(halt$1.leftover);
-	}, isEffect = (u) => typeof u == "object" && !!u && "~effect/Effect/dev" in u, forEach = forEach$1, succeed$2 = succeed$4, suspend$2 = suspend$3, sync = sync$1, void_ = void_$2, gen = gen$1, failCause$1 = failCause$3, yieldNow = yieldNow$1, flatMap$2 = flatMap$3, flatten$1 = flatten$2, andThen = andThen$1, tap$2 = tap$3, exit = exit$1, map$1 = map$4, as = as$1, catchCause = catchCause$1, sleep = sleep$1, raceFirst = raceFirst$1, matchCauseEffect = matchCauseEffect$1, services = services$1, addFinalizer = addFinalizer$2, onError = onError$1, onExit = onExit$1, makeSemaphoreUnsafe = makeSemaphoreUnsafe$1, makeLatchUnsafe = makeLatchUnsafe$1, makeLatch = makeLatch$1, forever = forever$2, forkChild = forkChild$1, forkIn = forkIn$1, runFork = runFork$1, runForkWith = runForkWith$1, fnUntraced = fnUntraced$1, flatMapEager = flatMapEager$1, join = fiberJoin, interrupt = fiberInterrupt, runIn = fiberRunIn, Empty = /* @__PURE__ */ Symbol.for("effect/MutableList/Empty"), make$1 = () => ({
+	}, isEffect = (u) => typeof u == "object" && !!u && "~effect/Effect/dev" in u, forEach = forEach$1, promise = promise$1, succeed$2 = succeed$4, suspend$2 = suspend$3, sync = sync$1, void_ = void_$2, gen = gen$1, failCause$1 = failCause$3, yieldNow = yieldNow$1, flatMap$2 = flatMap$3, flatten$1 = flatten$2, andThen = andThen$1, tap$2 = tap$3, exit = exit$1, map$1 = map$4, as = as$1, catchCause = catchCause$1, matchCauseEffect = matchCauseEffect$1, services = services$1, addFinalizer = addFinalizer$2, onError = onError$1, onExit = onExit$1, cached = cached$1, makeSemaphoreUnsafe = makeSemaphoreUnsafe$1, makeLatch = makeLatch$1, forever = forever$2, forkChild = forkChild$1, forkIn = forkIn$1, runFork = runFork$1, runForkWith = runForkWith$1, runSync = runSync$1, fnUntraced = fnUntraced$1, flatMapEager = flatMapEager$1, join = fiberJoin, interrupt = fiberInterrupt, runIn = fiberRunIn, Empty = /* @__PURE__ */ Symbol.for("effect/MutableList/Empty"), make$1 = () => ({
 		head: void 0,
 		tail: void 0,
 		length: 0
@@ -1665,7 +1693,7 @@
 	}, fromTransform = (transform) => {
 		let self = Object.create(ChannelProto);
 		return self.transform = transform, self;
-	}, transformPull$1 = (self, f) => fromTransform((upstream, scope$2) => flatMap$2(toTransform(self)(upstream, scope$2), (pull) => f(pull, scope$2))), fromPull = (effect) => fromTransform((_, __) => effect), fromTransformBracket = (f) => fromTransform(fnUntraced(function* (upstream, scope$2) {
+	}, transformPull = (self, f) => fromTransform((upstream, scope$2) => flatMap$2(toTransform(self)(upstream, scope$2), (pull) => f(pull, scope$2))), fromPull = (effect) => fromTransform((_, __) => effect), fromTransformBracket = (f) => fromTransform(fnUntraced(function* (upstream, scope$2) {
 		let closableScope = forkUnsafe(scope$2), onCause = (cause) => close(closableScope, haltExitFromCause(cause));
 		return onError(yield* onError(f(upstream, scope$2, closableScope), onCause), onCause);
 	})), toTransform = (channel) => channel.transform, asyncQueue = (scope$2, f, options) => make({
@@ -1677,7 +1705,7 @@
 	})), callbackArray = (f, options) => fromTransform((_, scope$2) => map$1(asyncQueue(scope$2, f, options), toPullArray)), suspend$1 = (evaluate$1) => fromTransform((upstream, scope$2) => suspend$2(() => toTransform(evaluate$1())(upstream, scope$2))), succeed$1 = (value) => fromEffect(succeed$2(value)), empty$1 = /* @__PURE__ */ fromPull(/* @__PURE__ */ succeed$2(haltVoid)), fromEffect = (effect) => fromPull(sync(() => {
 		let done$2 = !1;
 		return suspend$2(() => done$2 ? haltVoid : (done$2 = !0, effect));
-	})), map = /* @__PURE__ */ dual(2, (self, f) => transformPull$1(self, (pull) => sync(() => {
+	})), map = /* @__PURE__ */ dual(2, (self, f) => transformPull(self, (pull) => sync(() => {
 		let i = 0;
 		return map$1(pull, (o) => f(o, i++));
 	}))), concurrencyIsSequential = (concurrency) => concurrency === void 0 || concurrency !== "unbounded" && concurrency <= 1, mapEffect = /* @__PURE__ */ dual((args$1) => isChannel(args$1[0]), (self, f, options) => concurrencyIsSequential(options?.concurrency) ? mapEffectSequential(self, f) : mapEffectConcurrent(self, f, options)), mapEffectSequential = (self, f) => fromTransform((upstream, scope$2) => {
@@ -1713,7 +1741,7 @@
 			return childScope = void 0, flatMap$2(close$1, () => makePull);
 		});
 		return suspend$2(() => childPull ?? makePull);
-	})), flatMapConcurrent = (self, f, options) => self.pipe(map(f), mergeAll(options)), flattenArray = (self) => transformPull$1(self, (pull) => {
+	})), flatMapConcurrent = (self, f, options) => self.pipe(map(f), mergeAll(options)), flattenArray = (self) => transformPull(self, (pull) => {
 		let array$3, index = 0;
 		return succeed$2(suspend$2(function loop() {
 			if (array$3 === void 0) return flatMap$2(pull, (array_) => {
@@ -1748,7 +1776,7 @@
 	}))), runWith = (self, f, onHalt) => suspend$2(() => {
 		let scope$2 = makeUnsafe();
 		return catchHalt(flatMap$2(toTransform(self)(haltVoid, scope$2), f), onHalt || succeed$2).pipe(onExit((exit$2) => close(scope$2, exit$2)));
-	}), runDrain$1 = (self) => runWith(self, (pull) => forever(pull, { autoYield: !1 })), toPullScoped = (self, scope$2) => toTransform(self)(haltVoid, scope$2), TypeId = "~effect/stream/Stream", streamVariance = {
+	}), runDrain$1 = (self) => runWith(self, (pull) => forever(pull, { autoYield: !1 })), TypeId = "~effect/stream/Stream", streamVariance = {
 		_R: identity,
 		_E: identity,
 		_A: identity
@@ -1760,7 +1788,7 @@
 	}, fromChannel = (channel) => {
 		let self = Object.create(StreamProto);
 		return self.channel = channel, self;
-	}, transformPull = (self, f) => fromChannel(fromTransform((_, scope$2) => flatMap$2(toPullScoped(self.channel, scope$2), (pull) => f(pull, scope$2)))), callback = (f, options) => fromChannel(callbackArray(f, options)), empty = /* @__PURE__ */ fromChannel(empty$1), succeed = (value) => fromChannel(succeed$1(of(value))), suspend = (stream) => fromChannel(suspend$1(() => stream().channel)), fromArray = (array$3) => isReadonlyArrayNonEmpty(array$3) ? fromChannel(succeed$1(array$3)) : empty, tap = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, f, options) => {
+	}, callback = (f, options) => fromChannel(callbackArray(f, options)), empty = /* @__PURE__ */ fromChannel(empty$1), succeed = (value) => fromChannel(succeed$1(of(value))), suspend = (stream) => fromChannel(suspend$1(() => stream().channel)), fromArray = (array$3) => isReadonlyArrayNonEmpty(array$3) ? fromChannel(succeed$1(array$3)) : empty, tap = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, f, options) => {
 		let concurrency = options?.concurrency ?? 1;
 		return concurrency === 1 || concurrency === "unbounded" ? self.channel.pipe(tap$1(forEach(f, {
 			discard: !0,
@@ -1772,33 +1800,28 @@
 				concurrency
 			}), options), fromChannel);
 		});
-	}), flatMap = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, f, options) => self.channel.pipe(flattenArray, flatMap$1((a) => f(a).channel, options), fromChannel)), flatten = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, options) => flatMap(self, identity, options)), concat = /* @__PURE__ */ dual(2, (self, that) => flatten(fromArray([self, that]))), debounce = /* @__PURE__ */ dual(2, (self, duration) => transformPull(self, fnUntraced(function* (pull, scope$2) {
-		let clock = yield* Clock, durationMs = toMillis(fromDurationInputUnsafe(duration)), lastArr, cause, emitAtMs = Infinity, pullLatch = makeLatchUnsafe(), emitLatch = makeLatchUnsafe(), endLatch = makeLatchUnsafe();
-		yield* pull.pipe(pullLatch.whenOpen, flatMap$2((arr) => (emitLatch.openUnsafe(), lastArr = arr, emitAtMs = clock.currentTimeMillisUnsafe() + durationMs, void_)), forever({ autoYield: !1 }), onError((cause_) => (cause = cause_, emitAtMs = clock.currentTimeMillisUnsafe(), emitLatch.openUnsafe(), endLatch.openUnsafe(), void_)), forkIn(scope$2));
-		let sleepLoop = suspend$2(function loop() {
-			let now = clock.currentTimeMillisUnsafe();
-			return flatMap$2(raceFirst(sleep(emitAtMs < now ? durationMs : Math.min(durationMs, emitAtMs - now)), endLatch.await), () => {
-				if (clock.currentTimeMillisUnsafe() < emitAtMs) return loop();
-				if (lastArr) {
-					emitLatch.closeUnsafe(), pullLatch.closeUnsafe();
-					let eff = succeed$2(of(lastNonEmpty(lastArr)));
-					return lastArr = void 0, eff;
-				} else if (cause) return failCause$1(cause);
-				return loop();
+	}), flatMap = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, f, options) => self.channel.pipe(flattenArray, flatMap$1((a) => f(a).channel, options), fromChannel)), flatten = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, options) => flatMap(self, identity, options)), concat = /* @__PURE__ */ dual(2, (self, that) => flatten(fromArray([self, that]))), runDrain = (self) => runDrain$1(self.channel);
+	GM_addStyle("\n  .copilotPreview__container, .feed-right-column[aria-label=\"Explore\"] {\n    display: none !important;\n  }\n  .feed-right-column li.notifications-list-item, .feed-right-column li.notifications-list-item.notification-read {\n    background-color: transparent !important;\n  }\n");
+	let addNotifications = memoize(fnUntraced(function* (parent) {
+		let html = yield* promise(() => fetch("/notifications").then((res) => res.text())), dom = new DOMParser().parseFromString(html, "text/html");
+		Array.from(dom.querySelectorAll("link[rel=stylesheet]")).filter((link) => link.href.includes("notifications")).forEach((link) => document.head.appendChild(link.cloneNode()));
+		let aside = document.createElement("aside");
+		aside.className = "feed-right-column d-block mb-5 mt-7";
+		let container = dom.querySelector("ul.js-active-navigation-container");
+		container.classList.remove("color-bg-subtle"), container.classList.add("border", "color-border-muted", "rounded-3", "overflow-hidden"), container.querySelectorAll("[class*='-md']").forEach((el) => {
+			Array.from(el.classList).forEach((cls) => {
+				cls.includes("-md") && el.classList.remove(cls);
 			});
-		});
-		return suspend$2(() => {
-			if (cause) {
-				if (lastArr) {
-					let eff = succeed$2(of(lastNonEmpty(lastArr)));
-					return lastArr = void 0, eff;
-				}
-				return failCause$1(cause);
-			}
-			return pullLatch.openUnsafe(), emitLatch.whenOpen(sleepLoop);
-		});
-	})));
-	GM_addStyle("\n  .copilotPreview__container, .feed-right-column {\n    display: none !important;\n  }\n"), succeed(void 0).pipe(concat(callback(fnUntraced(function* (queue) {
+		}), container.querySelectorAll(".notification-list-item-actions").forEach((el) => el.remove()), container.querySelectorAll(".notification-list-item-actions-responsive").forEach((el) => el.remove()), container.querySelectorAll(".notification-list-item-unread-indicator").forEach((el) => el.parentNode.remove()), container.querySelectorAll(".notification-is-starred-icon").forEach((el) => el.remove()), aside.appendChild(container), parent.appendChild(aside);
+	}, cached, runSync));
+	function findParentWithClass(element, className) {
+		for (; element;) {
+			if (element.className.includes(className)) return element;
+			element = element.parentElement;
+		}
+		return null;
+	}
+	succeed(void 0).pipe(concat(callback(fnUntraced(function* (queue) {
 		let observer = new MutationObserver((records) => {
 			offerAllUnsafe(queue, records);
 		});
@@ -1807,7 +1830,7 @@
 			childList: !0,
 			subtree: !0
 		}), yield* addFinalizer(() => sync(() => observer.disconnect()));
-	}))), debounce(10), tap(() => sync(() => {
+	}))), tap(fnUntraced(function* () {
 		let heading = Array.from(document.querySelectorAll("h3")).find((h) => h.textContent?.includes("Agent sessions"));
 		if (heading) {
 			let cont = findParentWithClass(heading, "DashboardListView-module__List");
@@ -1815,12 +1838,7 @@
 		}
 		let repoButton = document.querySelector("button[data-testid=\"dynamic-side-panel-items-search-button\"]");
 		repoButton && repoButton.click();
-	})), (self) => runDrain$1(self.channel), runFork);
-	function findParentWithClass(element, className) {
-		for (; element;) {
-			if (element.className.includes(className)) return element;
-			element = element.parentElement;
-		}
-		return null;
-	}
+		let feedContent = document.querySelector(".feed-content");
+		feedContent && (yield* forkChild(addNotifications(feedContent)));
+	})), runDrain, runFork);
 })();
