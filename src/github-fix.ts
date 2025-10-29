@@ -1,3 +1,13 @@
+// ==UserScript==
+// @name         Github Fix
+// @namespace    https://timsmart.co/
+// @version      2025-10-28
+// @description  Remove AI from github homepage
+// @author       Tim Smart <hello@timsmart.co>
+// @match        https://github.com
+// @grant        GM_addStyle
+// ==/UserScript==
+
 import { Stream } from "effect/stream"
 import { Effect, Queue } from "effect"
 
