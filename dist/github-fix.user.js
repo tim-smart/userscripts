@@ -1797,7 +1797,6 @@
 	let fetchNotifications = promise(() => fetch("/notifications").then((res) => res.text())).pipe(cached, runSync);
 	location.pathname === "/" && runFork(fetchNotifications);
 	let addNotifications = fnUntraced(function* (parent) {
-		if (parent.querySelector("aside.feed-notifications")) return;
 		let html = yield* fetchNotifications, dom = new DOMParser().parseFromString(html, "text/html");
 		Array.from(dom.querySelectorAll("link[rel=stylesheet]")).filter((link) => link.href.includes("notifications")).forEach((link) => document.head.appendChild(link.cloneNode()));
 		let aside = document.createElement("aside");
@@ -1808,7 +1807,7 @@
 				cls.includes("-md") && el.classList.remove(cls);
 			});
 		}), container.querySelectorAll(".notification-list-item-actions").forEach((el) => el.remove()), container.querySelectorAll(".notification-list-item-actions-responsive").forEach((el) => el.remove()), container.querySelectorAll(".notification-list-item-unread-indicator").forEach((el) => el.parentNode.remove()), container.querySelectorAll(".notification-is-starred-icon").forEach((el) => el.remove()), aside.appendChild(container), parent.appendChild(aside);
-	});
+	}, cached, runSync);
 	function findParentWithClass(element, className) {
 		for (; element;) {
 			if (element.className.includes(className)) return element;
