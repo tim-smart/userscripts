@@ -6,6 +6,7 @@
 // @author       Tim Smart <hello@timsmart.co>
 // @match        https://github.com
 // @grant        GM_addStyle
+// @run-at       document-start
 // ==/UserScript==
 
 (function() {
@@ -52,16 +53,7 @@
 				};
 			};
 		}
-	}, identity = (a) => a, constant = (value) => () => value, constTrue = /* @__PURE__ */ constant(!0), constFalse = /* @__PURE__ */ constant(!1), constVoid = /* @__PURE__ */ constant(void 0);
-	function memoize(f) {
-		let cache = /* @__PURE__ */ new WeakMap();
-		return (a) => {
-			if (cache.has(a)) return cache.get(a);
-			let result$2 = f(a);
-			return cache.set(a, result$2), result$2;
-		};
-	}
-	let isString = (input) => typeof input == "string", isNumber = (input) => typeof input == "number", isBoolean = (input) => typeof input == "boolean", isBigInt = (input) => typeof input == "bigint", isSymbol = (input) => typeof input == "symbol", isFunction$1 = isFunction, isObject = (input) => typeof input == "object" && !!input && !Array.isArray(input), isObjectKeyword = (input) => typeof input == "object" && !!input || isFunction$1(input), hasProperty = /* @__PURE__ */ dual(2, (self, property) => isObjectKeyword(self) && property in self), isTagged = /* @__PURE__ */ dual(2, (self, tag) => hasProperty(self, "_tag") && self._tag === tag), isDate = (input) => input instanceof Date, getAllObjectKeys = (obj) => {
+	}, identity = (a) => a, constant = (value) => () => value, constTrue = /* @__PURE__ */ constant(!0), constFalse = /* @__PURE__ */ constant(!1), constVoid = /* @__PURE__ */ constant(void 0), isString = (input) => typeof input == "string", isNumber = (input) => typeof input == "number", isBoolean = (input) => typeof input == "boolean", isBigInt = (input) => typeof input == "bigint", isSymbol = (input) => typeof input == "symbol", isFunction$1 = isFunction, isObject = (input) => typeof input == "object" && !!input && !Array.isArray(input), isObjectKeyword = (input) => typeof input == "object" && !!input || isFunction$1(input), hasProperty = /* @__PURE__ */ dual(2, (self, property) => isObjectKeyword(self) && property in self), isTagged = /* @__PURE__ */ dual(2, (self, tag) => hasProperty(self, "_tag") && self._tag === tag), isDate = (input) => input instanceof Date, getAllObjectKeys = (obj) => {
 		let keys$1 = new Set(Reflect.ownKeys(obj));
 		if (obj.constructor === Object) return keys$1;
 		obj instanceof Error && keys$1.delete("stack");
@@ -937,7 +929,7 @@
 			let stack = spanToTrace.get(current)?.();
 			if (stack) {
 				let locationMatchAll = stack.matchAll(locationRegex), match$4 = !1;
-				for (let [, location] of locationMatchAll) match$4 = !0, out.push(`    at ${current.name} (${location})`);
+				for (let [, location$1] of locationMatchAll) match$4 = !0, out.push(`    at ${current.name} (${location$1})`);
 				match$4 || out.push(`    at ${current.name} (${stack.replace(/^at /, "")})`);
 			} else out.push(`    at ${current.name}`);
 			current = current.parent, i++;
@@ -1802,18 +1794,21 @@
 		});
 	}), flatMap = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, f, options) => self.channel.pipe(flattenArray, flatMap$1((a) => f(a).channel, options), fromChannel)), flatten = /* @__PURE__ */ dual((args$1) => isStream(args$1[0]), (self, options) => flatMap(self, identity, options)), concat = /* @__PURE__ */ dual(2, (self, that) => flatten(fromArray([self, that]))), runDrain = (self) => runDrain$1(self.channel);
 	GM_addStyle("\n  .copilotPreview__container, .feed-right-column[aria-label=\"Explore\"] {\n    display: none !important;\n  }\n  .feed-right-column li.notifications-list-item, .feed-right-column li.notifications-list-item.notification-read {\n    background-color: transparent !important;\n  }\n");
-	let addNotifications = memoize(fnUntraced(function* (parent) {
-		let html = yield* promise(() => fetch("/notifications").then((res) => res.text())), dom = new DOMParser().parseFromString(html, "text/html");
+	let fetchNotifications = promise(() => fetch("/notifications").then((res) => res.text())).pipe(cached, runSync);
+	location.pathname === "/" && runFork(fetchNotifications);
+	let addNotifications = fnUntraced(function* (parent) {
+		if (parent.querySelector("aside.feed-notifications")) return;
+		let html = yield* fetchNotifications, dom = new DOMParser().parseFromString(html, "text/html");
 		Array.from(dom.querySelectorAll("link[rel=stylesheet]")).filter((link) => link.href.includes("notifications")).forEach((link) => document.head.appendChild(link.cloneNode()));
 		let aside = document.createElement("aside");
-		aside.className = "feed-right-column d-block mb-5 mt-7";
+		aside.className = "feed-notifications feed-right-column d-block mb-5 mt-7";
 		let container = dom.querySelector("ul.js-active-navigation-container");
 		container.classList.remove("color-bg-subtle"), container.classList.add("border", "color-border-muted", "rounded-3", "overflow-hidden"), container.querySelectorAll("[class*='-md']").forEach((el) => {
 			Array.from(el.classList).forEach((cls) => {
 				cls.includes("-md") && el.classList.remove(cls);
 			});
 		}), container.querySelectorAll(".notification-list-item-actions").forEach((el) => el.remove()), container.querySelectorAll(".notification-list-item-actions-responsive").forEach((el) => el.remove()), container.querySelectorAll(".notification-list-item-unread-indicator").forEach((el) => el.parentNode.remove()), container.querySelectorAll(".notification-is-starred-icon").forEach((el) => el.remove()), aside.appendChild(container), parent.appendChild(aside);
-	}, cached, runSync));
+	});
 	function findParentWithClass(element, className) {
 		for (; element;) {
 			if (element.className.includes(className)) return element;

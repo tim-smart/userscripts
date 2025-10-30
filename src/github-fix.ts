@@ -6,11 +6,11 @@
 // @author       Tim Smart <hello@timsmart.co>
 // @match        https://github.com
 // @grant        GM_addStyle
+// @run-at       document-start
 // ==/UserScript==
 
 import { Stream } from "effect/stream"
 import { Effect, Queue } from "effect"
-import { memoize } from "effect/Function"
 
 declare function GM_addStyle(css: string): void
 
@@ -23,61 +23,63 @@ GM_addStyle(`
   }
 `)
 
-const addNotifications = memoize(
-  Effect.fnUntraced(
-    function* (parent: Element) {
-      const html = yield* Effect.promise(() =>
-        fetch("/notifications").then((res) => res.text()),
-      )
-      const dom = new DOMParser().parseFromString(html, "text/html")
+const fetchNotifications = Effect.promise(() =>
+  fetch("/notifications").then((res) => res.text()),
+).pipe(Effect.cached, Effect.runSync)
 
-      // copy notifications css
-      const css = Array.from(
-        dom.querySelectorAll("link[rel=stylesheet]"),
-      ).filter((link) =>
-        (link as HTMLLinkElement).href.includes("notifications"),
-      )
-      css.forEach((link) => document.head.appendChild(link.cloneNode()))
+if (location.pathname === "/") {
+  Effect.runFork(fetchNotifications)
+}
 
-      const aside = document.createElement("aside")
-      aside.className = "feed-right-column d-block mb-5 mt-7"
-      const container = dom.querySelector("ul.js-active-navigation-container")!
-      container.classList.remove("color-bg-subtle")
-      container.classList.add(
-        "border",
-        "color-border-muted",
-        "rounded-3",
-        "overflow-hidden",
-      )
-      // remove .*-md* classes
-      container.querySelectorAll("[class*='-md']").forEach((el) => {
-        const classes = Array.from(el.classList)
-        classes.forEach((cls) => {
-          if (cls.includes("-md")) {
-            el.classList.remove(cls)
-          }
-        })
-      })
-      container
-        .querySelectorAll(".notification-list-item-actions")
-        .forEach((el) => el.remove())
-      container
-        .querySelectorAll(".notification-list-item-actions-responsive")
-        .forEach((el) => el.remove())
-      container
-        .querySelectorAll(".notification-list-item-unread-indicator")
-        .forEach((el) => (el.parentNode as HTMLDivElement).remove())
-      container
-        .querySelectorAll(".notification-is-starred-icon")
-        .forEach((el) => el.remove())
-      aside.appendChild(container)
+const addNotifications = Effect.fnUntraced(function* (parent: Element) {
+  if (parent.querySelector("aside.feed-notifications")) {
+    return
+  }
 
-      parent.appendChild(aside)
-    },
-    Effect.cached,
-    Effect.runSync,
-  ),
-)
+  const html = yield* fetchNotifications
+  const dom = new DOMParser().parseFromString(html, "text/html")
+
+  // copy notifications css
+  const css = Array.from(dom.querySelectorAll("link[rel=stylesheet]")).filter(
+    (link) => (link as HTMLLinkElement).href.includes("notifications"),
+  )
+  css.forEach((link) => document.head.appendChild(link.cloneNode()))
+
+  const aside = document.createElement("aside")
+  aside.className = "feed-notifications feed-right-column d-block mb-5 mt-7"
+  const container = dom.querySelector("ul.js-active-navigation-container")!
+  container.classList.remove("color-bg-subtle")
+  container.classList.add(
+    "border",
+    "color-border-muted",
+    "rounded-3",
+    "overflow-hidden",
+  )
+  // remove .*-md* classes
+  container.querySelectorAll("[class*='-md']").forEach((el) => {
+    const classes = Array.from(el.classList)
+    classes.forEach((cls) => {
+      if (cls.includes("-md")) {
+        el.classList.remove(cls)
+      }
+    })
+  })
+  container
+    .querySelectorAll(".notification-list-item-actions")
+    .forEach((el) => el.remove())
+  container
+    .querySelectorAll(".notification-list-item-actions-responsive")
+    .forEach((el) => el.remove())
+  container
+    .querySelectorAll(".notification-list-item-unread-indicator")
+    .forEach((el) => (el.parentNode as HTMLDivElement).remove())
+  container
+    .querySelectorAll(".notification-is-starred-icon")
+    .forEach((el) => el.remove())
+  aside.appendChild(container)
+
+  parent.appendChild(aside)
+})
 
 function findParentWithClass(element: Element, className: string) {
   while (element) {
