@@ -9,8 +9,9 @@
 // @run-at       document-start
 // ==/UserScript==
 
-import { Stream } from "effect/stream"
-import { Effect, Queue } from "effect"
+import * as Effect from "effect/Effect"
+import * as Queue from "effect/Queue"
+import * as Stream from "effect/Stream"
 
 declare function GM_addStyle(css: string): void
 
