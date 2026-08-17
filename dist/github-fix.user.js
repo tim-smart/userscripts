@@ -10,7 +10,7 @@
 // ==/UserScript==
 
 (function() {
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Pipeable.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Pipeable.js
 	/**
 	* The `Pipeable` module defines the shared interface and implementation helpers
 	* for values that support Effect-style method chaining with `.pipe(...)`.
@@ -117,7 +117,7 @@
 		return keys.has("constructor") && typeof obj.constructor == "function" && proto === obj.constructor.prototype && keys.delete("constructor"), keys;
 	}, byReferenceInstances = /*#__PURE__*/ new WeakSet();
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Predicate.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Predicate.js
 	/**
 	* Defines runtime checks for values.
 	*
@@ -300,7 +300,7 @@
 		return visitedObjects.delete(obj), result;
 	}
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Equal.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Equal.js
 	/**
 	* Defines the unique string identifier for the `Equal` interface.
 	*
@@ -513,7 +513,7 @@
 		}
 	};
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Formatter.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Formatter.js
 	/**
 	* Formats JavaScript values into readable strings.
 	*
@@ -658,7 +658,7 @@
 		}
 	}
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Inspectable.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Inspectable.js
 	/**
 	* Defines the symbol used by Node.js for custom object inspection.
 	*
@@ -700,7 +700,7 @@
 		}
 	};
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Utils.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Utils.js
 	/**
 	* Yields its wrapped value exactly once through an `IterableIterator`.
 	*
@@ -782,7 +782,7 @@
 		return standard[InternalTypeId](() => (/* @__PURE__ */ Error()).stack)?.includes(InternalTypeId) === !0 ? standard[InternalTypeId] : forced[InternalTypeId];
 	})();
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/internal/record.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/internal/record.js
 	/** @internal */
 	function assignProperty(self, key, value) {
 		key === "__proto__" ? Object.defineProperty(self, key, {
@@ -797,7 +797,7 @@
 		for (let key of Reflect.ownKeys(source)) Object.prototype.propertyIsEnumerable.call(source, key) && assignProperty(self, key, source[key]);
 	}
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/internal/core.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/internal/core.js
 	/** @internal */
 	let EffectTypeId = "~effect/Effect", ExitTypeId = "~effect/Exit", effectVariance = {
 		_A: identity,
@@ -1234,18 +1234,18 @@
 		[symbol$1]() {
 			return number(this.mapUnsafe.size);
 		}
-	}, hasSameCache = (self, that) => self.cacheRoot === that.cacheRoot, isContext = (u) => hasProperty(u, TypeId$5), isReference = (u) => !!u[ReferenceTypeId], empty$3 = () => emptyContext, emptyContext = /*#__PURE__*/ makeUnsafe$2(/*#__PURE__*/ new Map()), make$4 = (key, service) => makeUnsafe$2(/* @__PURE__ */ new Map([[key.key, service]])), add = /*#__PURE__*/ dual(3, (self, key, service) => {
-		let impl = self, cacheRoot = cacheKeys.has(key.key) ? void 0 : impl.cacheRoot;
+	}, hasSameCache = (self, that) => self.cacheRoot === that.cacheRoot, isContext = (u) => hasProperty(u, TypeId$5), isReference = (u) => !!u[ReferenceTypeId], empty$3 = () => emptyContext, emptyContext = /*#__PURE__*/ makeUnsafe$2(/*#__PURE__*/ new Map()), make$4 = (key, service) => makeUnsafe$2(/* @__PURE__ */ new Map([[key.key, service]])), add = /*#__PURE__*/ dual(3, (self, key, service) => addUnsafe(self, key.key, service)), addUnsafe = (self, key, service) => {
+		let impl = self, cacheRoot = cacheKeys.has(key) ? void 0 : impl.cacheRoot;
 		if (impl.depth >= 8) {
 			let map = new Map(impl.mapUnsafe);
-			return map.set(key.key, service), makeImpl(cacheRoot, map, void 0, 0);
+			return map.set(key, service), makeImpl(cacheRoot, map, void 0, 0);
 		}
 		return makeImpl(cacheRoot, impl.base, {
-			key: key.key,
+			key,
 			value: service,
 			parent: impl.overlay
 		}, impl.depth + 1);
-	}), getOrUndefinedUnsafe = (self, key) => {
+	}, getOrUndefinedUnsafe = (self, key) => {
 		let value = lookup(self, key);
 		return value === notFound ? void 0 : value;
 	}, get = /* @__PURE__ */ dual(2, (self, service) => {
@@ -1592,7 +1592,7 @@
 		defaultValue: () => "Info"
 	});
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/internal/effect.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/internal/effect.js
 	/** @internal */
 	var Interrupt = class extends ReasonBase {
 		fiberId;
@@ -1918,7 +1918,7 @@
 		}));
 	})), context$1 = () => getContext, getContext = /*#__PURE__*/ withFiber((fiber) => succeed$4(fiber.context)), contextWith = (f) => withFiber((fiber) => f(fiber.context)), provideContext = /*#__PURE__*/ dual(2, (self, context) => effectIsExit(self) ? self : updateContext(self, merge(context))), provideService = function() {
 		return arguments.length === 1 ? dual(2, (self, impl) => provideServiceImpl(self, arguments[0], impl)) : dual(3, (self, service, impl) => provideServiceImpl(self, service, impl)).apply(this, arguments);
-	}, provideServiceImpl = (self, service, implementation) => updateContext(self, (s) => s.mapUnsafe.get(service.key) === implementation ? s : add(s, service, implementation)), forever$1 = /*#__PURE__*/ dual((args) => isEffect(args[0]), (self, options) => whileLoop({
+	}, provideServiceImpl = (self, service, implementation) => updateContext(self, add(service, implementation)), forever$1 = /*#__PURE__*/ dual((args) => isEffect(args[0]), (self, options) => whileLoop({
 		while: constTrue,
 		body: constant(options?.disableYield ? self : flatMap$3(self, (_) => yieldNow$1)),
 		step: constVoid
@@ -2198,7 +2198,7 @@
 		fiberMiddleware.interruptChildren ??= fiberInterruptChildren;
 	}
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Exit.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Exit.js
 	/**
 	* Creates a successful Exit containing the given value.
 	*
@@ -2228,7 +2228,7 @@
 	let succeed$3 = exitSucceed, failCause$2 = exitFailCause, void_$1 = exitVoid, makeUnsafe$1 = scopeMakeUnsafe, provide = provideScope, addFinalizer$1 = scopeAddFinalizer, forkUnsafe = scopeForkUnsafe, close = scopeClose, findError = findError$1, isDone = isDone$1, done = done$1;
 	Service()("effect/Cause/StackTrace"), Service()("effect/Cause/InterruptorStackTrace");
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Pull.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Pull.js
 	/**
 	* Models one low-level pull step for stream-like consumers.
 	*
@@ -2528,7 +2528,7 @@
 		}
 	};
 	//#endregion
-	//#region node_modules/.pnpm/effect@4.0.0-rc.108/node_modules/effect/dist/Channel.js
+	//#region node_modules/.pnpm/effect@4.0.0-rc.109/node_modules/effect/dist/Channel.js
 	/**
 	* Runtime identifier stored on `Channel` values and used by `isChannel` to
 	* recognize them.
