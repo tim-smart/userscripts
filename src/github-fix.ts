@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Github Fix
 // @namespace    https://timsmart.co/
-// @version      2025-10-30
+// @version      2026-08-17
 // @description  Remove AI from github homepage
 // @author       Tim Smart <hello@timsmart.co>
 // @match        https://github.com
